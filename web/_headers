@@ -1,0 +1,53 @@
+# ─── HTTP Security Headers ───────────────────────────────────────────────────
+# Applied by Netlify, Render static sites, and any host that reads _headers.
+# These are the authoritative headers; the meta-tag equivalents in index.html
+# act only as fallbacks for hosts that do not support this file.
+
+/*
+  # Prevent the page from being embedded in any iframe (clickjacking)
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+
+  # Stop browsers guessing MIME types (MIME-sniffing attacks)
+  X-Content-Type-Options: nosniff
+
+  # Legacy XSS filter for older browsers
+  X-XSS-Protection: 1; mode=block
+
+  # Only send origin in the Referer header; never full URL to third parties
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Disable unnecessary browser features
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=(), magnetometer=(), ambient-light-sensor=()
+
+  # Force HTTPS for 1 year (set by host once SSL is active)
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+  # Full CSP — Flutter web needs unsafe-inline for bootstrap + wasm-unsafe-eval for CanvasKit
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://fonts.googleapis.com; img-src 'self' data: blob: https:; connect-src 'self' https:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'
+
+# ─── Asset caching ───────────────────────────────────────────────────────────
+
+# Flutter compiled assets are content-hashed — cache forever
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/flutter_bootstrap.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# ─── PDF protection ──────────────────────────────────────────────────────────
+# Prevent search engines indexing raw PDFs; the portfolio page is the entry point.
+# Content-Disposition: inline keeps in-browser preview working normally.
+
+/resume/*
+  X-Robots-Tag: noindex, nofollow
+  X-Content-Type-Options: nosniff
+  Cache-Control: private, no-store
+
+/certificates/*
+  X-Robots-Tag: noindex, nofollow
+  X-Content-Type-Options: nosniff
+  Cache-Control: private, no-store

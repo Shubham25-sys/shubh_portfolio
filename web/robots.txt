@@ -1,0 +1,12 @@
+User-agent: *
+# Allow the main portfolio to be indexed
+Allow: /
+
+# Block direct indexing of raw PDFs — the portfolio page is the intended entry point
+Disallow: /resume/
+Disallow: /certificates/
+
+# Block Flutter service worker internals
+Disallow: /flutter_service_worker.js
+
+Sitemap: https://shubhamwani.dev/sitemap.xml
