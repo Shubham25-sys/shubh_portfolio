@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' show Random, sin, cos, pi;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -23,10 +24,19 @@ class HeroSection extends StatefulWidget {
   State<HeroSection> createState() => _HeroSectionState();
 }
 
-class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin {
+class _HeroSectionState extends State<HeroSection>
+    with TickerProviderStateMixin {
   late AnimationController _particleController;
   late AnimationController _orb1Controller;
   late AnimationController _orb2Controller;
+  late AnimationController _scanCtrl;   // anime scan line
+  late AnimationController _ringCtrl;   // energy rings
+
+  // Glitch effect state
+  String _glitchName = '';
+  Timer? _glitchTimer;
+  static const _glitchChars = r'!@#%^*[]{}?/\01~><';
+  static final _rng = Random();
 
   @override
   void initState() {
@@ -43,6 +53,17 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
+    _scanCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+    _ringCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    )..repeat();
+
+    // Begin glitch loop after initial load
+    _glitchTimer = Timer(const Duration(seconds: 3), _startGlitchLoop);
   }
 
   @override
@@ -50,7 +71,38 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
     _particleController.dispose();
     _orb1Controller.dispose();
     _orb2Controller.dispose();
+    _scanCtrl.dispose();
+    _ringCtrl.dispose();
+    _glitchTimer?.cancel();
     super.dispose();
+  }
+
+  void _startGlitchLoop() {
+    _runGlitch().then((_) {
+      if (!mounted) return;
+      _glitchTimer = Timer(
+        Duration(milliseconds: 2500 + _rng.nextInt(2500)),
+        _startGlitchLoop,
+      );
+    });
+  }
+
+  Future<void> _runGlitch() async {
+    final name = PortfolioData.name;
+    for (int frame = 0; frame < 5; frame++) {
+      final chars = name.split('');
+      final toGlitch = 2 + _rng.nextInt(3);
+      final indices = List.generate(chars.length, (i) => i)
+        ..removeWhere((i) => chars[i] == ' ')
+        ..shuffle(_rng);
+      for (int i = 0; i < toGlitch && i < indices.length; i++) {
+        chars[indices[i]] =
+            _glitchChars[_rng.nextInt(_glitchChars.length)];
+      }
+      if (mounted) setState(() => _glitchName = chars.join());
+      await Future.delayed(Duration(milliseconds: 40 + _rng.nextInt(40)));
+    }
+    if (mounted) setState(() => _glitchName = '');
   }
 
   @override
@@ -64,6 +116,15 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
       decoration: const BoxDecoration(gradient: AppColors.heroBg),
       child: Stack(
         children: [
+          // Energy rings (behind everything)
+          AnimatedBuilder(
+            animation: _ringCtrl,
+            builder: (context, child) => CustomPaint(
+              size: Size(size.width, size.height),
+              painter: _RingPainter(_ringCtrl.value),
+            ),
+          ),
+
           // Animated particles
           AnimatedBuilder(
             animation: _particleController,
@@ -123,6 +184,15 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
             painter: _GridPainter(),
           ),
 
+          // Anime scan line (on top of grid, behind content)
+          AnimatedBuilder(
+            animation: _scanCtrl,
+            builder: (context, child) => CustomPaint(
+              size: Size(size.width, size.height),
+              painter: _ScanLinePainter(_scanCtrl.value),
+            ),
+          ),
+
           // Main content
           Center(
             child: SingleChildScrollView(
@@ -139,9 +209,11 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
                   children: [
                     // Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
-                        border: Border.all(color: AppColors.accentTeal.withValues(alpha: 0.5)),
+                        border: Border.all(
+                            color: AppColors.accentTeal.withValues(alpha: 0.5)),
                         borderRadius: BorderRadius.circular(20),
                         color: AppColors.accentTeal.withValues(alpha: 0.08),
                       ),
@@ -157,9 +229,15 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
                             ),
                           )
                               .animate(onPlay: (c) => c.repeat())
-                              .scale(begin: const Offset(1, 1), end: const Offset(1.5, 1.5), duration: 800.ms)
+                              .scale(
+                                  begin: const Offset(1, 1),
+                                  end: const Offset(1.5, 1.5),
+                                  duration: 800.ms)
                               .then()
-                              .scale(begin: const Offset(1.5, 1.5), end: const Offset(1, 1), duration: 800.ms),
+                              .scale(
+                                  begin: const Offset(1.5, 1.5),
+                                  end: const Offset(1, 1),
+                                  duration: 800.ms),
                           const SizedBox(width: 8),
                           Text(
                             'Available for opportunities',
@@ -194,15 +272,21 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
 
                     const SizedBox(height: 8),
 
-                    // Name with gradient
+                    // Name — with glitch effect
                     ShaderMask(
                       shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.accentTeal, AppColors.accentBlue, AppColors.accentPurple],
+                        colors: [
+                          AppColors.accentTeal,
+                          AppColors.accentBlue,
+                          AppColors.accentPurple,
+                        ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ).createShader(bounds),
                       child: Text(
-                        PortfolioData.name,
+                        _glitchName.isEmpty
+                            ? PortfolioData.name
+                            : _glitchName,
                         style: GoogleFonts.inter(
                           fontSize: isWide ? 76 : 44,
                           fontWeight: FontWeight.w800,
@@ -253,7 +337,8 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
 
                     // Summary
                     Container(
-                      constraints: BoxConstraints(maxWidth: isWide ? 580 : double.infinity),
+                      constraints: BoxConstraints(
+                          maxWidth: isWide ? 580 : double.infinity),
                       child: Text(
                         PortfolioData.summary,
                         style: GoogleFonts.inter(
@@ -350,7 +435,7 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
                 ),
                 const SizedBox(height: 6),
                 const Icon(Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.accentTeal, size: 22)
+                        color: AppColors.accentTeal, size: 22)
                     .animate(onPlay: (c) => c.repeat())
                     .moveY(
                       begin: 0,
@@ -374,7 +459,110 @@ class _HeroSectionState extends State<HeroSection> with TickerProviderStateMixin
   }
 }
 
-// Floating particle painter
+// ── Anime scan line painter ────────────────────────────────────────────────
+
+class _ScanLinePainter extends CustomPainter {
+  final double progress; // 0–1 over 6 s
+
+  const _ScanLinePainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Scan occupies the first 15 % of each cycle (~0.9 s)
+    if (progress > 0.15) return;
+
+    final t = progress / 0.15; // normalise to 0–1 within the scan phase
+    final y = t * size.height;
+
+    // Glow trail below the line
+    canvas.drawRect(
+      Rect.fromLTWH(0, y, size.width, 55),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppColors.accentTeal.withValues(alpha: 0.07),
+            Colors.transparent,
+          ],
+        ).createShader(Rect.fromLTWH(0, y, size.width, 55)),
+    );
+
+    // Main scan line
+    canvas.drawLine(
+      Offset(0, y),
+      Offset(size.width, y),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..shader = LinearGradient(
+          colors: [
+            Colors.transparent,
+            AppColors.accentTeal.withValues(alpha: 0.6),
+            Colors.white.withValues(alpha: 0.85),
+            AppColors.accentBlue.withValues(alpha: 0.6),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+        ).createShader(Rect.fromLTWH(0, y - 1, size.width, 2)),
+    );
+
+    // Bright moving dot at 30 % of width
+    final dotX = size.width * 0.30;
+    canvas.drawCircle(
+      Offset(dotX, y),
+      3,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.9)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ScanLinePainter old) => old.progress != progress;
+}
+
+// ── Expanding energy rings painter ────────────────────────────────────────
+
+class _RingPainter extends CustomPainter {
+  final double progress;
+
+  static const _ringPhases = [0.0, 0.34, 0.67];
+  static const _ringColors = [
+    AppColors.accentTeal,
+    AppColors.accentBlue,
+    AppColors.accentPurple,
+  ];
+
+  const _RingPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width * 0.5, size.height * 0.44);
+
+    for (int i = 0; i < 3; i++) {
+      final t = (progress + _ringPhases[i]) % 1.0;
+      final radius = 60.0 + t * 520;
+      final alpha = (1.0 - t) * 0.07;
+      if (alpha < 0.002) continue;
+
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = _ringColors[i].withValues(alpha: alpha),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.progress != progress;
+}
+
+// ── Floating particle painter (unchanged) ─────────────────────────────────
+
 class _ParticlePainter extends CustomPainter {
   final double progress;
   static final _rng = Random(42);
@@ -403,8 +591,10 @@ class _ParticlePainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
     for (final p in _particles) {
       final offsetY = sin(progress * 2 * pi * p.speed + p.phase) * 18;
-      final offsetX = cos(progress * 2 * pi * p.speed * 0.5 + p.phase) * 10;
-      paint.color = _colors[p.colorIdx].withValues(alpha: 0.25 + 0.15 * sin(progress * 2 * pi + p.phase));
+      final offsetX =
+          cos(progress * 2 * pi * p.speed * 0.5 + p.phase) * 10;
+      paint.color = _colors[p.colorIdx].withValues(
+          alpha: 0.25 + 0.15 * sin(progress * 2 * pi + p.phase));
       canvas.drawCircle(
         Offset(p.x * size.width + offsetX, p.y * size.height + offsetY),
         p.r,
@@ -430,7 +620,8 @@ class _Particle {
   });
 }
 
-// Subtle grid painter
+// ── Grid painter (unchanged) ───────────────────────────────────────────────
+
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -451,7 +642,8 @@ class _GridPainter extends CustomPainter {
   bool shouldRepaint(_GridPainter old) => false;
 }
 
-// Gradient CTA button
+// ── Gradient CTA button (unchanged) ───────────────────────────────────────
+
 class _GradientButton extends StatefulWidget {
   final String label;
   final IconData icon;
@@ -482,7 +674,8 @@ class _GradientButtonState extends State<_GradientButton> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
           decoration: BoxDecoration(
             gradient: widget.filled
                 ? const LinearGradient(
@@ -494,7 +687,9 @@ class _GradientButtonState extends State<_GradientButton> {
             border: widget.filled
                 ? null
                 : Border.all(
-                    color: _hovered ? AppColors.accentTeal : AppColors.borderColor,
+                    color: _hovered
+                        ? AppColors.accentTeal
+                        : AppColors.borderColor,
                     width: 1.5,
                   ),
             borderRadius: BorderRadius.circular(10),
@@ -505,28 +700,31 @@ class _GradientButtonState extends State<_GradientButton> {
                           ? AppColors.shadowTeal
                           : AppColors.borderColor.withValues(alpha: 0.4),
                       blurRadius: 24,
-                      spreadRadius: 0,
                       offset: const Offset(0, 4),
                     ),
                   ]
                 : null,
-            color: widget.filled ? null : (_hovered ? AppColors.bgCard : Colors.transparent),
+            color: widget.filled
+                ? null
+                : (_hovered ? AppColors.bgCard : Colors.transparent),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                widget.icon,
-                size: 16,
-                color: widget.filled ? AppColors.bgDeep : AppColors.textPrimary,
-              ),
+              Icon(widget.icon,
+                  size: 16,
+                  color: widget.filled
+                      ? AppColors.bgDeep
+                      : AppColors.textPrimary),
               const SizedBox(width: 8),
               Text(
                 widget.label,
                 style: GoogleFonts.inter(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: widget.filled ? AppColors.bgDeep : AppColors.textPrimary,
+                  color: widget.filled
+                      ? AppColors.bgDeep
+                      : AppColors.textPrimary,
                 ),
               ),
             ],
@@ -537,7 +735,8 @@ class _GradientButtonState extends State<_GradientButton> {
   }
 }
 
-// Social icon button
+// ── Social icon button (unchanged) ────────────────────────────────────────
+
 class _SocialIcon extends StatefulWidget {
   final IconData icon;
   final String url;
@@ -578,14 +777,20 @@ class _SocialIconState extends State<_SocialIcon> {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: _hovered ? widget.color.withValues(alpha: 0.15) : Colors.transparent,
+              color: _hovered
+                  ? widget.color.withValues(alpha: 0.15)
+                  : Colors.transparent,
               border: Border.all(
                 color: _hovered ? widget.color : AppColors.borderColor,
                 width: 1.5,
               ),
               borderRadius: BorderRadius.circular(10),
               boxShadow: _hovered
-                  ? [BoxShadow(color: widget.color.withValues(alpha: 0.25), blurRadius: 16)]
+                  ? [
+                      BoxShadow(
+                          color: widget.color.withValues(alpha: 0.25),
+                          blurRadius: 16)
+                    ]
                   : null,
             ),
             child: FaIcon(

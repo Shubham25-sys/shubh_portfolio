@@ -16,6 +16,9 @@ class SkillsSection extends StatelessWidget {
     AppColors.accentTeal,
   ];
 
+  // Power levels per category (anime DBZ style)
+  static const List<int> _powerLevels = [95, 88, 80, 87, 83];
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -41,7 +44,7 @@ class SkillsSection extends StatelessWidget {
               crossAxisCount: isWide ? 3 : 1,
               mainAxisSpacing: 20,
               crossAxisSpacing: 20,
-              childAspectRatio: isWide ? 1.3 : 2.2,
+              childAspectRatio: isWide ? 1.05 : 1.7,
             ),
             itemCount: categories.length,
             itemBuilder: (context, i) => _SkillCard(
@@ -49,6 +52,7 @@ class SkillsSection extends StatelessWidget {
               skills: categories[i].value,
               accentColor: _categoryColors[i % _categoryColors.length],
               delay: (i * 100).ms,
+              powerLevel: _powerLevels[i % _powerLevels.length],
             ),
           ),
         ],
@@ -62,20 +66,48 @@ class _SkillCard extends StatefulWidget {
   final List<String> skills;
   final Color accentColor;
   final Duration delay;
+  final int powerLevel;
 
   const _SkillCard({
     required this.title,
     required this.skills,
     required this.accentColor,
     required this.delay,
+    required this.powerLevel,
   });
 
   @override
   State<_SkillCard> createState() => _SkillCardState();
 }
 
-class _SkillCardState extends State<_SkillCard> {
+class _SkillCardState extends State<_SkillCard>
+    with SingleTickerProviderStateMixin {
   bool _hovered = false;
+  late final AnimationController _powerCtrl;
+  late final Animation<double> _powerAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _powerCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _powerAnim = CurvedAnimation(
+      parent: _powerCtrl,
+      curve: Curves.elasticOut,
+    );
+    // Trigger after card entrance delay
+    Future.delayed(widget.delay + const Duration(milliseconds: 700), () {
+      if (mounted) _powerCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _powerCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +116,7 @@ class _SkillCardState extends State<_SkillCard> {
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: _hovered
               ? LinearGradient(
@@ -108,7 +140,6 @@ class _SkillCardState extends State<_SkillCard> {
                   BoxShadow(
                     color: widget.accentColor.withValues(alpha: 0.15),
                     blurRadius: 24,
-                    spreadRadius: 0,
                   ),
                 ]
               : null,
@@ -116,6 +147,7 @@ class _SkillCardState extends State<_SkillCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Category title row
             Row(
               children: [
                 Container(
@@ -137,7 +169,7 @@ class _SkillCardState extends State<_SkillCard> {
                 Text(
                   widget.title,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                     letterSpacing: 0.3,
@@ -145,7 +177,9 @@ class _SkillCardState extends State<_SkillCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Skill chips
             Expanded(
               child: Wrap(
                 spacing: 8,
@@ -162,6 +196,77 @@ class _SkillCardState extends State<_SkillCard> {
                     )
                     .toList(),
               ),
+            ),
+
+            // ── Anime power bar ──────────────────────────────────────
+            const SizedBox(height: 10),
+            AnimatedBuilder(
+              animation: _powerAnim,
+              builder: (context, child) {
+                final fill = (_powerAnim.value * widget.powerLevel / 100)
+                    .clamp(0.0, 1.0);
+                final displayLevel =
+                    (_powerAnim.value * widget.powerLevel).clamp(0.0, widget.powerLevel.toDouble()).round();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'POWER LV.',
+                          style: GoogleFonts.inter(
+                            fontSize: 8,
+                            color: widget.accentColor.withValues(alpha: 0.65),
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                        Text(
+                          '$displayLevel%',
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            color: widget.accentColor,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: widget.accentColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: FractionallySizedBox(
+                        widthFactor: fill,
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                widget.accentColor,
+                                widget.accentColor.withValues(alpha: 0.65),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: widget.accentColor.withValues(alpha: 0.75),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
