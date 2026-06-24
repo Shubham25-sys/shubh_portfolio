@@ -104,6 +104,8 @@ class _ProjectCard extends StatefulWidget {
 
 class _ProjectCardState extends State<_ProjectCard> {
   bool _hovered = false;
+  double _tiltX = 0, _tiltY = 0;
+  double _cardW = 300, _cardH = 200;
 
   Color get _accent => Color(widget.data['accentColor'] as int);
   List<Color> get _gradients =>
@@ -125,66 +127,100 @@ class _ProjectCardState extends State<_ProjectCard> {
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        transform: _hovered
-            ? Matrix4.translationValues(0.0, -6.0, 0.0)
-            : Matrix4.identity(),
-        decoration: BoxDecoration(
-          gradient: AppColors.cardGradient,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: _hovered ? _accent.withValues(alpha: 0.6) : AppColors.borderColor,
-            width: _hovered ? 1.5 : 1,
-          ),
-          boxShadow: _hovered
-              ? [
-                  BoxShadow(
-                    color: _accent.withValues(alpha: 0.2),
-                    blurRadius: 40,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top gradient bar
-            Container(
-              height: 4,
+      onExit: (_) => setState(() {
+        _hovered = false;
+        _tiltX = 0;
+        _tiltY = 0;
+      }),
+      child: Listener(
+        onPointerHover: (event) {
+          if (!_hovered) return;
+          setState(() {
+            _tiltX = ((event.localPosition.dx / _cardW) * 2 - 1).clamp(-1.0, 1.0) * 0.10;
+            _tiltY = ((event.localPosition.dy / _cardH) * 2 - 1).clamp(-1.0, 1.0) * 0.08;
+          });
+        },
+        child: LayoutBuilder(
+          builder: (ctx, c) {
+            _cardW = c.maxWidth;
+            _cardH = c.maxHeight;
+            return AnimatedContainer(
+              duration: _hovered ? Duration.zero : const Duration(milliseconds: 500),
+              curve: Curves.easeOut,
+              transform: _hovered
+                  ? (Matrix4.identity()
+                      ..setEntry(3, 2, 0.0008)
+                      ..rotateX(-_tiltY)
+                      ..rotateY(_tiltX)
+                      ..translateByDouble(0.0, -6.0, 0.0, 0.0))
+                  : Matrix4.identity(),
+              transformAlignment: Alignment.center,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: _gradients),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                gradient: AppColors.cardGradient,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _hovered ? _accent.withValues(alpha: 0.6) : AppColors.borderColor,
+                  width: _hovered ? 1.5 : 1,
                 ),
+                boxShadow: _hovered
+                    ? [
+                        BoxShadow(
+                          color: _accent.withValues(alpha: 0.2),
+                          blurRadius: 40,
+                          spreadRadius: 0,
+                          offset: const Offset(0, 8),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(28),
-              child: widget.featured && widget.isWide
-                  ? _FeaturedLayout(
-                      data: widget.data,
-                      accent: _accent,
-                      gradients: _gradients,
-                      icon: _icon,
-                      url: _url,
-                      hovered: _hovered,
-                    )
-                  : _StandardLayout(
-                      data: widget.data,
-                      accent: _accent,
-                      gradients: _gradients,
-                      icon: _icon,
-                      url: _url,
-                      hovered: _hovered,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top gradient bar
+                  Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: _gradients),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      boxShadow: _hovered
+                          ? [
+                              BoxShadow(
+                                color: _gradients.first.withValues(alpha: 0.7),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              )
+                            ]
+                          : null,
                     ),
-            ),
-          ],
+                  ),
+
+                  Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: widget.featured && widget.isWide
+                        ? _FeaturedLayout(
+                            data: widget.data,
+                            accent: _accent,
+                            gradients: _gradients,
+                            icon: _icon,
+                            url: _url,
+                            hovered: _hovered,
+                          )
+                        : _StandardLayout(
+                            data: widget.data,
+                            accent: _accent,
+                            gradients: _gradients,
+                            icon: _icon,
+                            url: _url,
+                            hovered: _hovered,
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     )

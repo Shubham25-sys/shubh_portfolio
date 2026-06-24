@@ -52,8 +52,27 @@ class _TimelineItem extends StatefulWidget {
   State<_TimelineItem> createState() => _TimelineItemState();
 }
 
-class _TimelineItemState extends State<_TimelineItem> {
+class _TimelineItemState extends State<_TimelineItem> with SingleTickerProviderStateMixin {
   bool _hovered = false;
+  late final AnimationController _pingCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _pingCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    if (widget.data['current'] as bool) {
+      _pingCtrl.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _pingCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,33 +89,58 @@ class _TimelineItemState extends State<_TimelineItem> {
             child: Column(
               children: [
                 // Dot
-                Container(
-                  width: 20,
-                  height: 20,
-                  margin: const EdgeInsets.only(top: 24),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: isCurrent ? AppColors.tealBlueGradient : null,
-                    color: isCurrent ? null : AppColors.bgCard,
-                    border: isCurrent
-                        ? null
-                        : Border.all(color: AppColors.borderColor, width: 2),
-                    boxShadow: isCurrent
-                        ? [BoxShadow(color: AppColors.shadowTeal, blurRadius: 12)]
-                        : null,
-                  ),
-                  child: isCurrent
-                      ? null
-                      : Center(
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: AppColors.accentBlue,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (isCurrent)
+                        AnimatedBuilder(
+                          animation: _pingCtrl,
+                          builder: (context, child) {
+                            final t = _pingCtrl.value;
+                            return Container(
+                              width: 20 + t * 34,
+                              height: 20 + t * 34,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.accentTeal.withValues(alpha: (1.0 - t) * 0.55),
+                                  width: 1.5,
+                                ),
+                              ),
+                            );
+                          },
                         ),
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: isCurrent ? AppColors.tealBlueGradient : null,
+                          color: isCurrent ? null : AppColors.bgCard,
+                          border: isCurrent
+                              ? null
+                              : Border.all(color: AppColors.borderColor, width: 2),
+                          boxShadow: isCurrent
+                              ? [BoxShadow(color: AppColors.shadowTeal, blurRadius: 12)]
+                              : null,
+                        ),
+                        child: isCurrent
+                            ? null
+                            : Center(
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.accentBlue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
                 // Line
                 if (!widget.isLast)

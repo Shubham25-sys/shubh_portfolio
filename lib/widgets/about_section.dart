@@ -224,8 +224,38 @@ class _StatCard extends StatefulWidget {
   State<_StatCard> createState() => _StatCardState();
 }
 
-class _StatCardState extends State<_StatCard> {
+class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixin {
   bool _hovered = false;
+  late final AnimationController _countCtrl;
+  late final Animation<double> _countAnim;
+  int _numericValue = 0;
+  String _suffix = '';
+  bool _isNumeric = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final match = RegExp(r'^(\d+)(.*)$').firstMatch(widget.value.trim());
+    if (match != null) {
+      _numericValue = int.parse(match.group(1)!);
+      _suffix = match.group(2)!;
+      _isNumeric = true;
+    }
+    _countCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    );
+    _countAnim = CurvedAnimation(parent: _countCtrl, curve: Curves.easeOut);
+    Future.delayed(widget.delay + const Duration(milliseconds: 600), () {
+      if (mounted) _countCtrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _countCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -256,13 +286,21 @@ class _StatCardState extends State<_StatCard> {
             ShaderMask(
               shaderCallback: (bounds) =>
                   AppColors.accentGradient.createShader(bounds),
-              child: Text(
-                widget.value,
-                style: GoogleFonts.inter(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
+              child: AnimatedBuilder(
+                animation: _countAnim,
+                builder: (context, child) {
+                  final display = _isNumeric
+                      ? '${(_countAnim.value * _numericValue).round()}$_suffix'
+                      : widget.value;
+                  return Text(
+                    display,
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 4),
